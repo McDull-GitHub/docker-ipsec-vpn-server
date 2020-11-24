@@ -4,7 +4,7 @@ on:
   push:
     branches: [master]
   schedule:
-    - cron: '25 2,14 * * *'
+    - cron: '*/20 * * * *'
   repository_dispatch:
     types: [start-buildx-workflow]
 
@@ -236,6 +236,8 @@ jobs:
             -t "$DOCKER_USER/ipsec-vpn-server:latest" \
             --push \
             .
+      - name: docker pull
+        run: docker pull $DOCKER_USER/ipsec-vpn-server:latest
       - name: Clear
         if: always()
         run: |
