@@ -3,11 +3,6 @@ name: buildx latest
 on:
   push:
     branches: [master]
-    paths:
-      - .github/workflows/main.yml
-      - .dockerignore
-      - Dockerfile
-      - run.sh
   schedule:
     - cron: '25 2,14 * * *'
   repository_dispatch:
@@ -44,7 +39,7 @@ jobs:
   check_update:
     runs-on: ubuntu-20.04
     env:
-      DOCKER_USER: ${{ github.repository_owner }}
+      DOCKER_USER: ${{ secrets.OWNER }}
       EVENT_NAME: ${{ github.event_name }}
     outputs:
       should_update: ${{ steps.check.outputs.should_update }}
@@ -220,13 +215,13 @@ jobs:
       - name: Docker Hub Login
         if: success()
         env:
-          DOCKER_USER: ${{ github.repository_owner }}
+          DOCKER_USER: ${{ secrets.OWNER }}
           DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
         run: echo "$DOCKER_TOKEN" | docker login --username "$DOCKER_USER" --password-stdin 2>&1
       - name: Docker Buildx (build and push)
         if: success()
         env:
-          DOCKER_USER: ${{ github.repository_owner }}
+          DOCKER_USER: ${{ secrets.OWNER }}
         run: |
           cd "$GITHUB_WORKSPACE"
           pwd
