@@ -48,7 +48,7 @@ jobs:
         run: |
           if [ "$EVENT_NAME" != "push" ] && [ "$EVENT_NAME" != "repository_dispatch" ]; then
             docker pull debian:buster-slim
-            docker pull "$DOCKER_USER/ipsec-vpn-server"
+            docker pull "$DOCKER_USER/l2tp-ipsec-server"
           fi
           echo "GitHub event name: $EVENT_NAME"
       - name: Check
@@ -59,7 +59,7 @@ jobs:
             DEBIAN_UPDATED=false
 
             debian_update_time=$(docker inspect --format='{{.Created}}' debian:buster-slim)
-            image_update_time=$(docker inspect --format='{{.Created}}' "$DOCKER_USER/ipsec-vpn-server")
+            image_update_time=$(docker inspect --format='{{.Created}}' "$DOCKER_USER/l2tp-ipsec-server")
 
             if [ -n "$debian_update_time" ] && [ -n "$image_update_time" ]; then
               debian_update_time_s=$(date -d "$debian_update_time" +%s)
@@ -233,11 +233,11 @@ jobs:
             --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
             --build-arg VCS_REF=${GITHUB_SHA::8} \
             --build-arg VERSION=latest \
-            -t "$DOCKER_USER/ipsec-vpn-server:latest" \
+            -t "$DOCKER_USER/l2tp-ipsec-server:latest" \
             --push \
             .
       - name: docker pull
-        run: docker pull $DOCKER_USER/ipsec-vpn-server:latest
+        run: docker pull ${{ secrets.OWNER }}/l2tp-ipsec-server:latest
       - name: Clear
         if: always()
         run: |
