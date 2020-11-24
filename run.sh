@@ -20,8 +20,6 @@ fi
 if ip link add dummy0 type dummy 2>&1 | grep -q "not permitted"; then
 cat 1>&2 <<'EOF'
 Error: This Docker image must be run in privileged mode.
-    For detailed instructions, please visit:
-    https://github.com/hwdsl2/docker-ipsec-vpn-server
 
 EOF
   exit 1
@@ -59,7 +57,6 @@ if [ -z "$VPN_IPSEC_PSK" ] && [ -z "$VPN_USER" ] && [ -z "$VPN_PASSWORD" ]; then
   fi
 fi
 
-# Remove whitespace and quotes around VPN variables, if any
 VPN_IPSEC_PSK=$(nospaces "$VPN_IPSEC_PSK")
 VPN_IPSEC_PSK=$(noquotes "$VPN_IPSEC_PSK")
 VPN_USER=$(nospaces "$VPN_USER")
@@ -114,7 +111,6 @@ if printf '%s' "$VPN_USER $VPN_ADDL_USERS" | tr ' ' '\n' | sort | uniq -c | grep
   exiterr "VPN usernames must not contain duplicates."
 fi
 
-# Check DNS servers and try to resolve hostnames to IPs
 if [ -n "$VPN_DNS_SRV1" ]; then
   check_ip "$VPN_DNS_SRV1" || VPN_DNS_SRV1=$(dig -t A -4 +short "$VPN_DNS_SRV1")
   if ! check_ip "$VPN_DNS_SRV1"; then
@@ -136,14 +132,10 @@ fi
 echo
 echo 'Trying to auto discover IP of this server...'
 
-# In case auto IP discovery fails, manually define the public IP
-# of this server in your 'env' file, as variable 'VPN_PUBLIC_IP'.
 PUBLIC_IP=${VPN_PUBLIC_IP:-''}
 
-# Try to auto discover IP of this server
 [ -z "$PUBLIC_IP" ] && PUBLIC_IP=$(dig @resolver1.opendns.com -t A -4 myip.opendns.com +short)
 
-# Check IP for correct format
 check_ip "$PUBLIC_IP" || PUBLIC_IP=$(wget -t 3 -T 15 -qO- http://ipv4.icanhazip.com)
 check_ip "$PUBLIC_IP" || exiterr "Cannot detect this server's public IP. Define it in your 'env' file as 'VPN_PUBLIC_IP'."
 
@@ -176,7 +168,6 @@ case $VPN_SHA2_TRUNCBUG in
     ;;
 esac
 
-# Create IPsec config
 cat > /etc/ipsec.conf <<EOF
 version 2.0
 
@@ -237,12 +228,10 @@ if grep -qs ike-frag /etc/ipsec.d/ikev2.conf; then
   sed -i 's/^[[:space:]]\+ike-frag=/  fragmentation=/' /etc/ipsec.d/ikev2.conf
 fi
 
-# Specify IPsec PSK
 cat > /etc/ipsec.secrets <<EOF
 %any  %any  : PSK "$VPN_IPSEC_PSK"
 EOF
 
-# Create xl2tpd config
 cat > /etc/xl2tpd/xl2tpd.conf <<EOF
 [global]
 port = 1701
@@ -258,7 +247,6 @@ pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
 EOF
 
-# Set xl2tpd options
 cat > /etc/ppp/options.xl2tpd <<EOF
 +mschap-v2
 ipcp-accept-local
@@ -280,7 +268,6 @@ ms-dns $DNS_SRV2
 EOF
 fi
 
-# Create VPN credentials
 cat > /etc/ppp/chap-secrets <<EOF
 "$VPN_USER" l2tpd "$VPN_PASSWORD" *
 EOF
@@ -308,7 +295,6 @@ EOF
   done
 fi
 
-# Update sysctl settings
 SYST='/sbin/sysctl -e -q -w'
 if [ "$(getconf LONG_BIT)" = "64" ]; then
   SHM_MAX=68719476736
@@ -333,7 +319,6 @@ $SYST net.ipv4.conf.default.rp_filter=0
 $SYST net.ipv4.conf.eth0.send_redirects=0
 $SYST net.ipv4.conf.eth0.rp_filter=0
 
-# Create IPTables rules
 iptables -I INPUT 1 -p udp --dport 1701 -m policy --dir in --pol none -j DROP
 iptables -I INPUT 2 -m conntrack --ctstate INVALID -j DROP
 iptables -I INPUT 3 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
@@ -346,9 +331,6 @@ iptables -I FORWARD 3 -i ppp+ -o eth+ -j ACCEPT
 iptables -I FORWARD 4 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j ACCEPT
 iptables -I FORWARD 5 -i eth+ -d "$XAUTH_NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -I FORWARD 6 -s "$XAUTH_NET" -o eth+ -j ACCEPT
-# Uncomment to disallow traffic between VPN clients
-# iptables -I FORWARD 2 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j DROP
-# iptables -I FORWARD 3 -s "$XAUTH_NET" -d "$XAUTH_NET" -j DROP
 iptables -A FORWARD -j DROP
 iptables -t nat -I POSTROUTING -s "$XAUTH_NET" -o eth+ -m policy --dir out --pol none -j MASQUERADE
 iptables -t nat -I POSTROUTING -s "$L2TP_NET" -o eth+ -j MASQUERADE
@@ -367,7 +349,6 @@ case $VPN_ANDROID_MTU_FIX in
     ;;
 esac
 
-# Update file attributes
 chmod 600 /etc/ipsec.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd
 
 cat <<EOF
@@ -375,8 +356,6 @@ cat <<EOF
 ================================================
 
 IPsec VPN server is now ready for use!
-
-Connect to your new VPN with these details:
 
 Server IP: $PUBLIC_IP
 IPsec PSK: $VPN_IPSEC_PSK
@@ -406,15 +385,10 @@ cat <<'EOF'
 
 Write these down. You'll need them to connect!
 
-Important notes:   https://git.io/vpnnotes2
-Setup VPN clients: https://git.io/vpnclients
-IKEv2 guide:       https://git.io/ikev2docker
-
 ================================================
 
 EOF
 
-# Start services
 mkdir -p /run/pluto /var/run/pluto /var/run/xl2tpd
 rm -f /run/pluto/pluto.pid /var/run/pluto/pluto.pid /var/run/xl2tpd.pid
 
